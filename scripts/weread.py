@@ -114,15 +114,11 @@ def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, catego
     properties = {
         "BookName":get_title(bookName),
         "BookId": get_rich_text(bookId),
-        "ISBN": get_rich_text(isbn),
-        "URL": get_url(f"https://weread.qq.com/web/reader/{calculate_book_str_id(bookId)}"),
         "Author": get_rich_text(author),
-        "Sort": get_number(sort),
-        "Rating": get_number(rating),
         "Cover": get_file(cover),
     }
     if categories != None:
-        properties["Categories"] =get_multi_select(categories)
+        
     read_info = get_read_info(bookId=bookId)
     if read_info != None:
         markedStatus = read_info.get("markedStatus", 0)
@@ -135,16 +131,7 @@ def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, catego
         minutes = readingTime % 3600 // 60
         if minutes > 0:
             format_time += f"{minutes}分"
-        properties["Status"] = get_select("读完" if markedStatus == 4 else "在读")
-        properties["ReadingTime"] = get_rich_text(format_time)
-        properties["Progress"] = get_number(readingProgress)
-        if "finishedDate" in read_info:
-            properties["Date"] = get_date(datetime.utcfromtimestamp(
-                        read_info.get("finishedDate")
-                    ).strftime("%Y-%m-%d %H:%M:%S"))
-
-    if cover.startswith("http"):
-        icon = get_icon(cover)
+        properties["Status"] = get_select("Finished" if markedStatus == 4 else "Want to Read")
     # notion api 限制100个block
     response = client.pages.create(parent=parent, icon=icon, properties=properties)
     id = response["id"]
