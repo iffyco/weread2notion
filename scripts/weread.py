@@ -112,7 +112,7 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
     time.sleep(0.3)
     parent = {"database_id": database_id, "type": "database_id"}
     properties = {
-        "BookName":get_title(bookName),
+        "Name":get_title(bookName),
         "BookId": get_rich_text(bookId),
         "Author": get_rich_text(author),
         "Cover": get_file(cover),
