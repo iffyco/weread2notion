@@ -132,7 +132,7 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
             format_time += f"{minutes}分"
         properties["Status"] = get_select("Finished" if markedStatus == 4 else "Want to Read")
     # notion api 限制100个block
-    response = client.pages.create(parent=parent, icon=icon, properties=properties)
+    response = client.pages.create(parent=parent, properties=properties)
     id = response["id"]
     return id
 
