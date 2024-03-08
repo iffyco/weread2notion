@@ -160,7 +160,7 @@ def add_grandchild(grandchild, results):
         client.blocks.children.append(block_id=id, children=[value])
 
 def get_sorted_bookshelf(userVid=USERVID):
-        url = "https://i.weread.qq.com/shelf/sync?userVid=" + str(userVid) + "&synckey=0&lectureSynckey=0"
+        url = "https://i.weread.qq.com/shelf/sync?userVid=" + str(userVid)
         r = session.get(url)
         if r.ok:
             data = r.json()
