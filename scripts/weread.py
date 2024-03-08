@@ -116,21 +116,10 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
         "BookId": get_rich_text(bookId),
         "Author": get_rich_text(author),
         "Cover": get_file(cover),
+        "Rating": "Not Read Yet",
+        "Status": "Want to Read"
     }
         
-    read_info = get_read_info(bookId=bookId)
-    if read_info != None:
-        markedStatus = read_info.get("markedStatus", 0)
-        readingTime = read_info.get("readingTime", 0)
-        readingProgress = read_info.get("readingProgress", 0)
-        format_time = ""
-        hour = readingTime // 3600
-        if hour > 0:
-            format_time += f"{hour}时"
-        minutes = readingTime % 3600 // 60
-        if minutes > 0:
-            format_time += f"{minutes}分"
-        properties["Status"] = get_select("Finished" if markedStatus == 4 else "Want to Read")
     # notion api 限制100个block
     response = client.pages.create(parent=parent, properties=properties)
     id = response["id"]
