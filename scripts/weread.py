@@ -107,7 +107,7 @@ def get_chapter_info(bookId):
     return None
 
 
-def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
+def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, categories):
     """插入到notion"""
     time.sleep(0.3)
     parent = {"database_id": database_id, "type": "database_id"}
@@ -115,12 +115,15 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
         "Name":get_title(bookName),
         "BookId": get_rich_text(bookId),
         "Author": get_rich_text(author),
+        "Rating": get_rich_text("Not Read Yet"),
         "Cover": get_file(cover),
-        "Rating": "Not Read Yet",
-        "Status": "Want to Read",
-        "Platform": "WeRead"
+        "Sort": get_number(sort),
+        "Status": get_select("Want to Read")
     }
-        
+    read_info = get_read_info(bookId=bookId)
+    if read_info != None:
+        markedStatus = read_info.get("markedStatus", 0)
+        properties["Status"] = get_select("Finished" if markedStatus == 4 else "In Progress")
     # notion api 限制100个block
     response = client.pages.create(parent=parent, properties=properties)
     id = response["id"]
@@ -151,13 +154,28 @@ def get_notebooklist():
     if r.ok:
         data = r.json()
         books = data.get("books")
-        
+        books.sort(key=lambda x: x["sort"])
         return books
     else:
         print(r.text)
     return None
 
 
+def get_sort():
+    """获取database中的最新时间"""
+    filter = {"property": "Sort", "number": {"is_not_empty": True}}
+    sorts = [
+        {
+            "property": "Sort",
+            "direction": "descending",
+        }
+    ]
+    response = client.databases.query(
+        database_id=database_id, filter=filter, sorts=sorts, page_size=1
+    )
+    if len(response.get("results")) == 1:
+        return response.get("results")[0].get("properties").get("Sort").get("number")
+    return 0
 
 
 def get_children(chapter, summary, bookmark_list):
@@ -327,11 +345,13 @@ if __name__ == "__main__":
     session.cookies = parse_cookie_string(weread_cookie)
     client = Client(auth=notion_token, log_level=logging.ERROR)
     session.get(WEREAD_URL)
-    
+    latest_sort = get_sort()
     books = get_notebooklist()
     if books != None:
         for index, book in enumerate(books):
-            
+            sort = book["sort"]
+            if sort <= latest_sort:
+                continue
             book = book.get("book")
             title = book.get("title")
             cover = book.get("cover")
@@ -351,7 +371,7 @@ if __name__ == "__main__":
             check(bookId)
             isbn, rating = get_bookinfo(bookId)
             id = insert_to_notion(
-                title, bookId, cover, author, isbn, rating, categories
+                title, bookId, cover, sort, author, isbn, rating, categories
             )
             chapter = get_chapter_info(bookId)
             bookmark_list = get_bookmark_list(bookId)
