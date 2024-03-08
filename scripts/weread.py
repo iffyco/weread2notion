@@ -117,7 +117,6 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
         "Author": get_rich_text(author),
         "Cover": get_file(cover),
     }
-    if categories != None:
         
     read_info = get_read_info(bookId=bookId)
     if read_info != None:
