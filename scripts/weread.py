@@ -117,7 +117,8 @@ def insert_to_notion(bookName, bookId, cover, author, isbn, rating, categories):
         "Author": get_rich_text(author),
         "Cover": get_file(cover),
         "Rating": "Not Read Yet",
-        "Status": "Want to Read"
+        "Status": "Want to Read",
+        "Platform": "WeRead"
     }
         
     # notion api 限制100个block
