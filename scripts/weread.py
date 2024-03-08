@@ -20,6 +20,17 @@ WEREAD_CHAPTER_INFO = "https://i.weread.qq.com/book/chapterInfos"
 WEREAD_READ_INFO_URL = "https://i.weread.qq.com/book/readinfo"
 WEREAD_REVIEW_LIST_URL = "https://i.weread.qq.com/review/list"
 WEREAD_BOOK_INFO = "https://i.weread.qq.com/book/info"
+WREAD_SHELF_URL = "https://weread.qq.com/web/shelf"
+USERVID = os.getenv("USERVID")
+
+def request_data(url):
+    global headers
+    r = requests.get(url,headers=headers,verify=False)
+    if r.ok:
+        data = r.json()
+    else:
+        raise Exception(r.text)
+    return data
 
 
 def parse_cookie_string(cookie_string):
@@ -115,7 +126,7 @@ def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, catego
         "Name":get_title(bookName),
         "BookId": get_rich_text(bookId),
         "Author": get_rich_text(author),
-        "Rating": get_rich_text("Not Read Yet"),
+        "Rating": get_select("Not Read Yet"),
         "Cover": get_file(cover),
         "Sort": get_number(sort),
         "Status": get_select("Want to Read")
@@ -128,6 +139,7 @@ def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, catego
     response = client.pages.create(parent=parent, properties=properties)
     id = response["id"]
     return id
+
 
 
 def add_children(id, children):
@@ -147,6 +159,17 @@ def add_grandchild(grandchild, results):
         id = results[key].get("id")
         client.blocks.children.append(block_id=id, children=[value])
 
+def get_sorted_bookshelf(userVid=USERVID):
+        url = "https://i.weread.qq.com/shelf/sync?userVid=" + str(userVid) + "&synckey=0&lectureSynckey=0"
+        r = session.get(url)
+        if r.ok:
+            data = r.json()
+            books = data.get("books")
+            books.sort(key=lambda x: x["sort"])
+            return books
+        else:
+            print(r.text)
+        return None
 
 def get_notebooklist():
     """获取笔记本列表"""
@@ -347,46 +370,74 @@ if __name__ == "__main__":
     session.get(WEREAD_URL)
     latest_sort = get_sort()
     books = get_notebooklist()
-    if books != None:
-        for index, book in enumerate(books):
-            sort = book["sort"]
-            if sort <= latest_sort:
-                continue
-            book = book.get("book")
-            title = book.get("title")
-            cover = book.get("cover")
-            if book.get("author") == "公众号" and book.get("cover").endswith("/0"):
-                cover += ".jpg"
-            if cover.startswith("http") and not cover.endswith(".jpg"):
-                path = download_image(cover)
-                cover = (
-                    f"https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+    books_in_shelf = get_sorted_bookshelf()
+    if books_in_shelf != None:
+        for index, book in enumerate(books_in_shelf):
+            if book["bookId"] in [notebook['bookId'] for notebook in books]:
+                sort = book["sort"]
+                if sort <= latest_sort:
+                    continue
+                book = book.get("book")
+                title = book.get("title")
+                cover = book.get("cover")
+                if book.get("author") == "公众号" and book.get("cover").endswith("/0"):
+                    cover += ".jpg"
+                if cover.startswith("http") and not cover.endswith(".jpg"):
+                    path = download_image(cover)
+                    cover = (
+                        f"https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+                    )
+                bookId = book.get("bookId")
+                author = book.get("author")
+                categories = book.get("categories")
+                if categories != None:
+                    categories = [x["title"] for x in categories]
+                print(f"正在同步 {title} ,一共{len(books)}本，当前是第{index+1}本。")
+                check(bookId)
+                isbn, rating = get_bookinfo(bookId)
+                id = insert_to_notion(
+                    title, bookId, cover, sort, author, isbn, rating, categories
                 )
-            bookId = book.get("bookId")
-            author = book.get("author")
-            categories = book.get("categories")
-            if categories != None:
-                categories = [x["title"] for x in categories]
-            print(f"正在同步 {title} ,一共{len(books)}本，当前是第{index+1}本。")
-            check(bookId)
-            isbn, rating = get_bookinfo(bookId)
-            id = insert_to_notion(
-                title, bookId, cover, sort, author, isbn, rating, categories
-            )
-            chapter = get_chapter_info(bookId)
-            bookmark_list = get_bookmark_list(bookId)
-            summary, reviews = get_review_list(bookId)
-            bookmark_list.extend(reviews)
-            bookmark_list = sorted(
-                bookmark_list,
-                key=lambda x: (
-                    x.get("chapterUid", 1),
-                    0
-                    if (x.get("range", "") == "" or x.get("range").split("-")[0] == "")
-                    else int(x.get("range").split("-")[0]),
-                ),
-            )
-            children, grandchild = get_children(chapter, summary, bookmark_list)
-            results = add_children(id, children)
-            if len(grandchild) > 0 and results != None:
-                add_grandchild(grandchild, results)
+                chapter = get_chapter_info(bookId)
+                bookmark_list = get_bookmark_list(bookId)
+                summary, reviews = get_review_list(bookId)
+                bookmark_list.extend(reviews)
+                bookmark_list = sorted(
+                    bookmark_list,
+                    key=lambda x: (
+                        x.get("chapterUid", 1),
+                        0
+                        if (x.get("range", "") == "" or x.get("range").split("-")[0] == "")
+                        else int(x.get("range").split("-")[0]),
+                    ),
+                )
+                children, grandchild = get_children(chapter, summary, bookmark_list)
+                results = add_children(id, children)
+                if len(grandchild) > 0 and results != None:
+                    add_grandchild(grandchild, results)
+
+            else:
+                sort = book["sort"]
+                if sort <= latest_sort:
+                    continue
+                book = book.get("book")
+                title = book.get("title")
+                cover = book.get("cover")
+                if book.get("author") == "公众号" and book.get("cover").endswith("/0"):
+                    cover += ".jpg"
+                if cover.startswith("http") and not cover.endswith(".jpg"):
+                    path = download_image(cover)
+                    cover = (
+                        f"https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+                    )
+                bookId = book.get("bookId")
+                author = book.get("author")
+                categories = book.get("categories")
+                if categories != None:
+                    categories = [x["title"] for x in categories]
+                print(f"正在同步 {title} ,一共{len(books)}本，当前是第{index+1}本。")
+                check(bookId)
+                isbn, rating = get_bookinfo(bookId)
+                id = insert_to_notion(
+                    title, bookId, cover, sort, author, isbn, rating, categories
+                )
