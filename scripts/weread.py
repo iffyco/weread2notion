@@ -374,9 +374,6 @@ if __name__ == "__main__":
     if books_in_shelf != None:
         for index, book in enumerate(books_in_shelf):
             if book["bookId"] in [notebook['bookId'] for notebook in books]:
-                sort = book["sort"]
-                if sort <= latest_sort:
-                    continue
                 book = book.get("book")
                 title = book.get("title")
                 cover = book.get("cover")
@@ -417,9 +414,6 @@ if __name__ == "__main__":
                     add_grandchild(grandchild, results)
 
             else:
-                sort = book["sort"]
-                if sort <= latest_sort:
-                    continue
                 book = book.get("book")
                 title = book.get("title")
                 cover = book.get("cover")
