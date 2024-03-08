@@ -165,7 +165,7 @@ def get_sorted_bookshelf(userVid=USERVID):
         if r.ok:
             data = r.json()
             books = data.get("books")
-            books.sort(key=lambda x: x["sort"])
+            
             return books
         else:
             print(r.text)
