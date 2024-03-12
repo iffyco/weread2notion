@@ -21,10 +21,7 @@ WEREAD_READ_INFO_URL = "https://i.weread.qq.com/book/readinfo"
 WEREAD_REVIEW_LIST_URL = "https://i.weread.qq.com/review/list"
 WEREAD_BOOK_INFO = "https://i.weread.qq.com/book/info"
 WREAD_SHELF_URL = "https://weread.qq.com/web/shelf"
-parser = argparse.ArgumentParser()
-parser.add_argument("uservid")
-options = parser.parse_args()
-uservid = options.uservid
+USERVID=os.getenv("USERVID","")
 def request_data(url):
     global headers
     r = requests.get(url,headers=headers,verify=False)
@@ -176,7 +173,7 @@ def add_grandchild(grandchild, results):
         id = results[key].get("id")
         client.blocks.children.append(block_id=id, children=[value])
 
-def get_sorted_bookshelf(userVid=uservid):
+def get_sorted_bookshelf(userVid=USERVID):
         url = "https://i.weread.qq.com/shelf/sync?userVid=" + str(userVid)
         r = session.get(url)
         if r.ok:
