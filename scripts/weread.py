@@ -21,7 +21,6 @@ WEREAD_READ_INFO_URL = "https://i.weread.qq.com/book/readinfo"
 WEREAD_REVIEW_LIST_URL = "https://i.weread.qq.com/review/list"
 WEREAD_BOOK_INFO = "https://i.weread.qq.com/book/info"
 WREAD_SHELF_URL = "https://weread.qq.com/web/shelf"
-USERVID = os.getenv("USERVID")
 
 def request_data(url):
     global headers
@@ -98,10 +97,20 @@ def check(bookId):
     time.sleep(0.3)
     filter = {"property": "BookId", "rich_text": {"equals": bookId}}
     response = client.databases.query(database_id=database_id, filter=filter)
+    if response["results"]:
+        return True
+    else:
+        return False
+
+
+def checkNote(bookId):
+    """检查是否已经插入过 如果已经插入了就删除"""
+    time.sleep(0.3)
+    filter = {"property": "BookId", "rich_text": {"equals": bookId}}
+    response = client.databases.query(database_id=database_id, filter=filter)
     for result in response["results"]:
         time.sleep(0.3)
-        client.blocks.delete(block_id=result["id"])
-
+        client.blocks.delete(block_id=result["id"]) 
 
 def get_chapter_info(bookId):
     """获取章节信息"""
@@ -118,6 +127,8 @@ def get_chapter_info(bookId):
     return None
 
 
+    
+    
 def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, categories):
     """插入到notion"""
     time.sleep(0.3)
@@ -129,14 +140,17 @@ def insert_to_notion(bookName, bookId, cover, sort, author, isbn, rating, catego
         "Rating": get_select("Not Read Yet"),
         "Cover": get_file(cover),
         "Sort": get_number(sort),
-        "Status": get_select("Want to Read")
+        "Status": get_select("Want to Read"),
+        "Platform": get_select("WeRead")
     }
     read_info = get_read_info(bookId=bookId)
     if read_info != None:
         markedStatus = read_info.get("markedStatus", 0)
-        properties["Status"] = get_select("Finished" if markedStatus == 4 else "In Progress")
+        properties["Status"] = get_select("Finished" if markedStatus == 4 else "Want to Read")
     # notion api 限制100个block
     response = client.pages.create(parent=parent, properties=properties)
+    
+    
     id = response["id"]
     return id
 
@@ -165,7 +179,6 @@ def get_sorted_bookshelf(userVid=USERVID):
         if r.ok:
             data = r.json()
             books = data.get("books")
-            
             return books
         else:
             print(r.text)
@@ -348,18 +361,27 @@ def download_image(url, save_dir="cover"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    
     parser.add_argument("weread_cookie")
     parser.add_argument("notion_token")
     parser.add_argument("database_id")
     parser.add_argument("ref")
     parser.add_argument("repository")
+    parser.add_argument("uservid")
+
     parser.add_argument("--styles", nargs="+", type=int, help="划线样式")
     parser.add_argument("--colors", nargs="+", type=int, help="划线颜色")
     options = parser.parse_args()
     weread_cookie = options.weread_cookie
+    
     database_id = options.database_id
+    
     notion_token = options.notion_token
+    
     ref = options.ref
+
+    uservid = options.uservid
+
     branch = ref.split("/")[-1]
     repository = options.repository
     styles = options.styles
@@ -371,30 +393,39 @@ if __name__ == "__main__":
     latest_sort = get_sort()
     books = get_notebooklist()
     books_in_shelf = get_sorted_bookshelf()
+    
+    
     if books_in_shelf != None:
         for index, book in enumerate(books_in_shelf):
             if book["bookId"] in [notebook['bookId'] for notebook in books]:
-                book = book.get("book")
+                sort = 1
                 title = book.get("title")
                 cover = book.get("cover")
                 if book.get("author") == "公众号" and book.get("cover").endswith("/0"):
                     cover += ".jpg"
-                if cover.startswith("http") and not cover.endswith(".jpg"):
-                    path = download_image(cover)
-                    cover = (
-                        f"https://raw.githubusercontent.com/{repository}/{branch}/{path}"
-                    )
                 bookId = book.get("bookId")
                 author = book.get("author")
                 categories = book.get("categories")
                 if categories != None:
                     categories = [x["title"] for x in categories]
-                print(f"正在同步 {title} ,一共{len(books)}本，当前是第{index+1}本。")
-                check(bookId)
-                isbn, rating = get_bookinfo(bookId)
-                id = insert_to_notion(
-                    title, bookId, cover, sort, author, isbn, rating, categories
-                )
+                print(f"正在同步 {title} ,一共{len(books_in_shelf)}本，当前是第{index+1}本。")
+                
+                if check(str(bookId)):
+                    print("页面已存在。")
+                    filter_for_check = {"property": "BookId", "rich_text": {"equals": bookId}}
+                    response = client.databases.query(database_id=database_id, filter=filter_for_check)
+                    id = response["results"][0]["id"]
+                    blocks_to_delete = client.blocks.children.list(block_id=id)["results"]
+                    for block in blocks_to_delete:
+                        client.blocks.delete(block_id=block["id"])
+                        print(f"Deleted block ID: {block['id']}")
+                else:
+                    isbn, rating = get_bookinfo(bookId)
+                    id = insert_to_notion(
+                        title, bookId, cover, sort, author, isbn, rating, categories
+                    )
+                
+                
                 chapter = get_chapter_info(bookId)
                 bookmark_list = get_bookmark_list(bookId)
                 summary, reviews = get_review_list(bookId)
@@ -414,6 +445,32 @@ if __name__ == "__main__":
                     add_grandchild(grandchild, results)
 
             else:
+                sort = 0
+                title = book.get("title")
+                cover = book.get("cover")
+                if book.get("author") == "公众号" and book.get("cover").endswith("/0"):
+                    cover += ".jpg"
+                bookId = book.get("bookId")
+                author = book.get("author") 
+                categories = book.get("categories")
+                if categories != None:
+                    categories = [x["title"] for x in categories]
+                print(f"正在同步 {title} ,一共{len(books_in_shelf)}本，当前是第{index+1}本。")
+                if check(str(bookId)):
+                    print("页面已存在。")
+                    
+                else:
+                    isbn, rating = get_bookinfo(bookId)
+                    id = insert_to_notion(
+                        title, bookId, cover, sort, author, isbn, rating, categories
+                    )
+    for index, book in enumerate(books):
+            if book["bookId"] in [book_shelf['bookId'] for book_shelf in books_in_shelf]:
+                print(book.get("title")+"已经同步过。")
+            else:
+                sort = book["sort"]
+                if sort <= latest_sort:
+                    continue
                 book = book.get("book")
                 title = book.get("title")
                 cover = book.get("cover")
@@ -430,8 +487,34 @@ if __name__ == "__main__":
                 if categories != None:
                     categories = [x["title"] for x in categories]
                 print(f"正在同步 {title} ,一共{len(books)}本，当前是第{index+1}本。")
-                check(bookId)
-                isbn, rating = get_bookinfo(bookId)
-                id = insert_to_notion(
-                    title, bookId, cover, sort, author, isbn, rating, categories
+                if check(str(bookId)):
+                    print("页面已存在。")
+                    filter = {"property": "BookId", "rich_text": {"equals": bookId}}
+                    response = client.databases.query(database_id=database_id, filter=filter)
+                    id = response["results"][0]["id"]
+                    blocks_to_delete = client.blocks.children.list(block_id=id)["results"]
+                    for block in blocks_to_delete:
+                        client.blocks.delete(block_id=block["id"])
+                        print(f"Deleted block ID: {block['id']}")
+                else:
+                    isbn, rating = get_bookinfo(bookId)
+                    id = insert_to_notion(
+                        title, bookId, cover, sort, author, isbn, rating, categories
+                    )
+                chapter = get_chapter_info(bookId)
+                bookmark_list = get_bookmark_list(bookId)
+                summary, reviews = get_review_list(bookId)
+                bookmark_list.extend(reviews)
+                bookmark_list = sorted(
+                    bookmark_list,
+                    key=lambda x: (
+                        x.get("chapterUid", 1),
+                        0
+                        if (x.get("range", "") == "" or x.get("range").split("-")[0] == "")
+                        else int(x.get("range").split("-")[0]),
+                    ),
                 )
+                children, grandchild = get_children(chapter, summary, bookmark_list)
+                results = add_children(id, children)
+                if len(grandchild) > 0 and results != None:
+                    add_grandchild(grandchild, results)
