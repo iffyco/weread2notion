@@ -367,7 +367,6 @@ if __name__ == "__main__":
     parser.add_argument("database_id")
     parser.add_argument("ref")
     parser.add_argument("repository")
-    parser.add_argument("uservid")
 
     parser.add_argument("--styles", nargs="+", type=int, help="划线样式")
     parser.add_argument("--colors", nargs="+", type=int, help="划线颜色")
@@ -379,8 +378,6 @@ if __name__ == "__main__":
     notion_token = options.notion_token
     
     ref = options.ref
-
-    uservid = options.uservid
 
     branch = ref.split("/")[-1]
     repository = options.repository
