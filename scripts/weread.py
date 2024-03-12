@@ -21,7 +21,7 @@ WEREAD_READ_INFO_URL = "https://i.weread.qq.com/book/readinfo"
 WEREAD_REVIEW_LIST_URL = "https://i.weread.qq.com/review/list"
 WEREAD_BOOK_INFO = "https://i.weread.qq.com/book/info"
 WREAD_SHELF_URL = "https://weread.qq.com/web/shelf"
-
+uservid = options.uservid
 def request_data(url):
     global headers
     r = requests.get(url,headers=headers,verify=False)
