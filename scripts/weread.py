@@ -463,7 +463,7 @@ if __name__ == "__main__":
                     )
     for index, book in enumerate(books):
             if book["bookId"] in [book_shelf['bookId'] for book_shelf in books_in_shelf]:
-                print(book.get("title")+"已经同步过。")
+                print("《"+book.get("book").get("title")+"》已经同步过。")
             else:
                 sort = book["sort"]
                 if sort <= latest_sort:
